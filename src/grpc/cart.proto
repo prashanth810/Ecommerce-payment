@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package cart;
+
+service CartService {
+  rpc GetCartItems (GetCartRequest) returns (CartResponse);
+  rpc ClearCart (ClearCartRequest) returns (ClearCartResponse);
+}
+
+message GetCartRequest {
+  string userId = 1;
+}
+
+message CartResponse {
+  bool success = 1;
+  string message = 2;
+  repeated CartItem items = 3;
+}
+
+message CartItem {
+  string productId = 1;
+  string weight = 2;
+  int32 quantity = 3;
+  string name = 4;
+  string image = 5;
+}
+
+message ClearCartRequest {
+  string userId = 1;
+}
+
+message ClearCartResponse {
+  bool success = 1;
+  string message = 2;
+}

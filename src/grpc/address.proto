@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package address;
+
+service AddressService {
+  rpc GetAddressById (GetAddressRequest) returns (AddressResponse);
+}
+
+message GetAddressRequest {
+  string userId = 1;
+  string addressId = 2;
+}
+
+message AddressResponse {
+  bool success = 1;
+  string message = 2;
+  Address data = 3;
+}
+
+message Address {
+  string id = 1;
+  string full_name = 2;
+  string phone = 3;
+  string building_number = 4;
+  string street = 5;
+  string landmark = 6;
+  string city = 7;
+  string state = 8;
+  string pincode = 9;
+  string country = 10;
+  string address_type = 11;
+  bool is_default = 12;
+}

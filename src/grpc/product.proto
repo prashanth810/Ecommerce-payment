@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package product;
+
+service ProductService {
+  rpc GetProductById (GetProductRequest) returns (ProductResponse);
+}
+
+message GetProductRequest {
+  string productId = 1;
+}
+
+message ProductVariant {
+  string weight = 1;
+  string original_price = 2;
+  string selling_price = 3;
+  string discount_price = 4;
+  int32 stock = 5;
+  int32 stock_quantity = 6;
+}
+
+message ProductData {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string thumbnail = 4;
+  repeated string images = 5;
+  repeated ProductVariant variants = 6;
+  bool is_active = 7;
+}
+
+message ProductResponse {
+  bool success = 1;
+  string message = 2;
+  ProductData data = 3;
+}
