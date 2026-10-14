@@ -4,6 +4,7 @@ import OrderModel from "../models/OrderModel.js";
 import PaymentModel from "../models/PaymentModel.js";
 import Envs from "../utils/Envs.js";
 import { getaddress, getcartitems, getsingleproduct, clearcart } from "../utils/grpcHelper.js";
+import { createInvoicePdf, getInvoiceNumber } from "../utils/invoicePdf.js";
 
 
 // keep these the same as the frontend config
@@ -194,6 +195,11 @@ const Placeorder = async (req, res) => {
     }
 };
 // ---------- my orders ----------
+// orders that should never show to the user (unpaid / cancelled)
+const HIDDEN_STATUSES = ["PENDING_PAYMENT", "CANCELLED"];
+
+// ---------- my orders (paginated) ----------
+// GET /order/my-orders?page=1&limit=10
 const Getmyorders = async (req, res) => {
     const userId = req?.user?.id;
 
@@ -202,10 +208,34 @@ const Getmyorders = async (req, res) => {
             return res.status(401).json({ success: false, message: "User not authorized !!!" });
         }
 
-        const orders = await OrderModel.find({ userId }).sort({ createdAt: -1 });
-        return res.status(200).json({ success: true, data: orders });
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+        const skip = (page - 1) * limit;
+
+        const filter = { userId, orderStatus: { $nin: HIDDEN_STATUSES } };
+
+        const [orders, totalItems] = await Promise.all([
+            OrderModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            OrderModel.countDocuments(filter),
+        ]);
+
+        const totalPages = Math.ceil(totalItems / limit);
+
+        return res.status(200).json({
+            success: true,
+            data: orders,
+            pagination: {
+                totalItems,
+                totalPages,
+                currentPage: page,
+                limit,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+        });
     }
     catch (error) {
+        console.error("Getmyorders error:", error);
         return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
     }
 };
@@ -223,7 +253,12 @@ const Getsingleorder = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid order id !!!" });
         }
 
-        const order = await OrderModel.findOne({ _id: orderId, userId });
+        const order = await OrderModel.findOne({
+            _id: orderId,
+            userId,
+            orderStatus: { $nin: HIDDEN_STATUSES },
+        }).lean();
+
         if (!order) {
             return res.status(404).json({ success: false, message: "Order not found !!!" });
         }
@@ -231,8 +266,83 @@ const Getsingleorder = async (req, res) => {
         return res.status(200).json({ success: true, data: order });
     }
     catch (error) {
+        console.error("Getsingleorder error:", error);
+        return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
+    }
+};
+// ---------- cancel an unpaid online order (popup closed / payment failed) ----------
+const Cancelpendingorder = async (req, res) => {
+    const userId = req?.user?.id;
+    const { orderId } = req.params;
+
+    try {
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "User not authorized !!!" });
+        }
+        if (!mongoose.isValidObjectId(orderId)) {
+            return res.status(400).json({ success: false, message: "Invalid order id !!!" });
+        }
+
+        // only a PENDING_PAYMENT order of this user can be cancelled (a paid order is never touched)
+        const order = await OrderModel.findOneAndUpdate(
+            { _id: orderId, userId, orderStatus: "PENDING_PAYMENT" },
+            { orderStatus: "CANCELLED" },
+            { new: true }
+        );
+
+        if (!order) {
+            return res.status(404).json({ success: false, message: "No pending order found !!!" });
+        }
+
+        await PaymentModel.updateOne(
+            { orderId: order._id, paymentStatus: "PENDING" },
+            { paymentStatus: "FAILED" }
+        );
+
+        return res.status(200).json({ success: true, message: "Order cancelled !!!" });
+    }
+    catch (error) {
         return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
     }
 };
 
-export { Placeorder, Getmyorders, Getsingleorder };
+// ---------- invoice (PDF) ----------
+const Getinvoice = async (req, res) => {
+    const userId = req?.user?.id;
+    const { orderId } = req.params;
+
+    try {
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "User not authorized !!!" });
+        }
+        if (!mongoose.isValidObjectId(orderId)) {
+            return res.status(400).json({ success: false, message: "Invalid order id !!!" });
+        }
+
+        // only the owner can download, so a user never sees someone else's invoice
+        const order = await OrderModel.findOne({ _id: orderId, userId }).lean();
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found !!!" });
+        }
+        if (order.orderStatus !== "PLACED") {
+            return res.status(400).json({ success: false, message: "Invoice is available only for placed orders !!!" });
+        }
+
+        const payment = await PaymentModel.findOne({ orderId: order._id }).lean();
+
+        const doc = createInvoicePdf({ order, payment });
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${getInvoiceNumber(order)}.pdf"`);
+
+        doc.pipe(res);
+        doc.end();
+    }
+    catch (error) {
+        console.error("Getinvoice error:", error.message);
+        if (res.headersSent) return res.end();
+        return res.status(500).json({ success: false, message: "Unable to generate the invoice. Please try again." });
+    }
+};
+
+export { Placeorder, Getmyorders, Getsingleorder, Cancelpendingorder, Getinvoice }; 
