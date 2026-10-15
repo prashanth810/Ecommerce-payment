@@ -4,10 +4,23 @@ package product;
 
 service ProductService {
   rpc GetProductById (GetProductRequest) returns (ProductResponse);
+  rpc ReduceStock    (StockUpdateRequest) returns (StockUpdateResponse);
+  rpc RestoreStock   (StockUpdateRequest) returns (StockUpdateResponse);
 }
 
 message GetProductRequest {
   string productId = 1;
+}
+
+message StockUpdateRequest {
+  string productId = 1;
+  string weight    = 2;
+  int32  quantity  = 3;
+}
+
+message StockUpdateResponse {
+  bool   success = 1;
+  string message = 2;
 }
 
 message ProductVariant {

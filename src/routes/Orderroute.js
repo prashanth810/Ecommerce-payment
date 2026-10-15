@@ -1,7 +1,7 @@
 import express from "express";
 import Authmiddleware from "../middlewares/Authmiddleware.js";
 import Ratelimit from "../middlewares/Ratelimit.js";
-import { Placeorder, Getmyorders, Getsingleorder, Cancelpendingorder, Getinvoice, } from "../controllers/Ordercontrollers.js";
+import { Placeorder, Getmyorders, Getsingleorder, Cancelorder, Getinvoice, } from "../controllers/Ordercontrollers.js";
 
 const Orderroute = express.Router();
 
@@ -12,6 +12,6 @@ Orderroute.get("/order/:orderId", Ratelimit(60 * 1000, 20, 5 * 60 * 1000), Authm
 // downlaod invoice
 Orderroute.get("/order/:orderId/invoice", Ratelimit(60 * 1000, 5, 5 * 60 * 1000), Authmiddleware, Getinvoice);
 
-Orderroute.post("/order/:orderId/cancel", Ratelimit(60 * 1000, 10, 5 * 60 * 1000), Authmiddleware, Cancelpendingorder);
+Orderroute.post("/order/:orderId/cancel", Ratelimit(60 * 1000, 10, 5 * 60 * 1000), Authmiddleware, Cancelorder);
 
 export default Orderroute;

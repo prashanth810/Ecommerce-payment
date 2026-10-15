@@ -28,7 +28,8 @@ const paymentSchema = new mongoose.Schema({
     },
     paymentStatus: {
         type: String,
-        enum: ["PENDING", "SUCCESS", "FAILED", "REFUND"],
+        // CANCELLED = COD order cancelled (nothing was paid), REFUND = paid online order refunded
+        enum: ["PENDING", "SUCCESS", "FAILED", "REFUND", "CANCELLED"],
         required: true,
     },
     razorpay_order_id: {
@@ -57,6 +58,18 @@ const paymentSchema = new mongoose.Schema({
     is_refund: {
         type: Boolean,
         default: false,
+    },
+
+    // ---- refund (filled when a paid online order is cancelled) ----
+    refund_id: {
+        type: String,
+    },
+    refund_status: {
+        type: String,
+        enum: ["INITIATED", "FAILED"],
+    },
+    refundedAt: {
+        type: Date,
     },
 }, { timestamps: true, minimize: false });
 

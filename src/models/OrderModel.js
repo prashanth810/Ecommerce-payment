@@ -21,6 +21,7 @@ const orderItemSchema = new mongoose.Schema({
     },
     status: {
         type: String,
+        enum: ["PENDING", "CANCELLED", "DELIVERED"],
         default: "PENDING",
     },
     image: {
@@ -65,8 +66,41 @@ const OrderSchema = new mongoose.Schema(
         },
         orderStatus: {
             type: String,
-            enum: ["PENDING_PAYMENT", "PLACED", "CANCELLED"],
+            // cancel is allowed only up to PACKED (see CANCELLABLE_STATUSES in the controller)
+            enum: [
+                "PENDING_PAYMENT",
+                "PLACED",
+                "CONFIRMED",
+                "PROCESSING",
+                "PACKED",
+                "SHIPPED",
+                "OUT_FOR_DELIVERY",
+                "DELIVERED",
+                "CANCELLED",
+            ],
             default: "PENDING_PAYMENT",
+        },
+        estimatedDeliveryFrom: {
+            type: Date,   // earliest possible delivery date
+            default: null,
+        },
+        estimatedDeliveryTo: {
+            type: Date,   // latest possible delivery date
+            default: null,
+        },
+
+        // ---- cancel (no defaults on purpose: a user-cancelled order is the only one that has cancelledAt) ----
+        cancelledAt: {
+            type: Date,
+        },
+        cancelledBy: {
+            type: String,
+            enum: ["USER", "ADMIN"],
+        },
+        cancelReason: {
+            type: String,
+            trim: true,
+            maxlength: 300,
         },
     }, { timestamps: true, minimize: false });
 

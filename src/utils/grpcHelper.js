@@ -116,4 +116,43 @@ const getsingleproduct = async (productId) => {
     }
 };
 
-export { getaddress, getcartitems, clearcart, getsingleproduct };
+// Reduce stock for a single item after a confirmed order.
+// Returns true on success, false on failure (non-fatal — order is already saved).
+const reducestock = async (productId, weight, quantity) => {
+    try {
+        const client = getProductClient();
+        const response = await callGrpc(client, "ReduceStock", {
+            productId: String(productId),
+            weight: String(weight),
+            quantity: Number(quantity),
+        });
+        if (!response?.success) {
+            console.warn(`ReduceStock warning [${productId} / ${weight}]:`, response?.message);
+        }
+        return response?.success || false;
+    } catch (error) {
+        console.error("Paymentservice gRPC ReduceStock error:", error.message);
+        return false;
+    }
+};
+
+// Restore stock for a single item when an order is cancelled or COD fails.
+const restorestock = async (productId, weight, quantity) => {
+    try {
+        const client = getProductClient();
+        const response = await callGrpc(client, "RestoreStock", {
+            productId: String(productId),
+            weight: String(weight),
+            quantity: Number(quantity),
+        });
+        if (!response?.success) {
+            console.warn(`RestoreStock warning [${productId} / ${weight}]:`, response?.message);
+        }
+        return response?.success || false;
+    } catch (error) {
+        console.error("Paymentservice gRPC RestoreStock error:", error.message);
+        return false;
+    }
+};
+
+export { getaddress, getcartitems, clearcart, getsingleproduct, reducestock, restorestock };

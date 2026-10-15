@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import PaymentModel from "../models/PaymentModel.js";
 import OrderModel from "../models/OrderModel.js";
 import Envs from "../utils/Envs.js";
-import { clearcart } from "../utils/grpcHelper.js";
+import { clearcart, reducestock, restorestock } from "../utils/grpcHelper.js";
 
 // ---------- helpers ----------
 const isText = (value) => typeof value === "string" && value.trim().length > 0;
@@ -148,8 +148,21 @@ const Verifypayment = async (req, res) => {
         await payment.save();
 
         // payment done -> confirm the order
-        await OrderModel.findByIdAndUpdate(payment.orderId, { orderStatus: "PLACED" });
+        const confirmedOrder = await OrderModel.findByIdAndUpdate(
+            payment.orderId,
+            { orderStatus: "PLACED" },
+            { new: true }
+        );
         await clearcart(userId);
+
+        // Reduce stock for every item in the order (fire-and-forget, non-fatal)
+        if (confirmedOrder?.items?.length) {
+            await Promise.allSettled(
+                confirmedOrder.items.map((item) =>
+                    reducestock(item.productId, item.weight, item.quantity)
+                )
+            );
+        }
 
         return res.status(200).json({
             success: true,
@@ -246,7 +259,20 @@ const Makecodfailed = async (req, res) => {
             return res.status(404).json({ success: false, message: "No pending COD payment found for this order !!!" });
         }
 
-        await OrderModel.findByIdAndUpdate(payment.orderId, { orderStatus: "CANCELLED" });
+        const cancelledOrder = await OrderModel.findByIdAndUpdate(
+            payment.orderId,
+            { orderStatus: "CANCELLED" },
+            { new: true }
+        );
+
+        // Restore stock for every item since COD order was already confirmed (stock was reduced at placement)
+        if (cancelledOrder?.items?.length) {
+            await Promise.allSettled(
+                cancelledOrder.items.map((item) =>
+                    restorestock(item.productId, item.weight, item.quantity)
+                )
+            );
+        }
 
         return res.status(200).json({ success: true, message: "COD marked as failed !!!", data: payment });
     }
