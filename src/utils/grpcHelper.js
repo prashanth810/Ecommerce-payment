@@ -53,6 +53,18 @@ const getProductClient = () => {
     return productClient;
 };
 
+let riderClient;
+const getRiderClient = () => {
+    if (!riderClient) {
+        const proto = loadProto("rider.proto");
+        riderClient = new proto.rider.RiderService(
+            Envs.RIDER_GRPC_URL,
+            grpc.credentials.createInsecure()
+        );
+    }
+    return riderClient;
+};
+
 // one place that adds the shared key + a 5 second timeout to every call
 const callGrpc = (client, method, payload) =>
     new Promise((resolve, reject) => {
@@ -155,4 +167,26 @@ const restorestock = async (productId, weight, quantity) => {
     }
 };
 
-export { getaddress, getcartitems, clearcart, getsingleproduct, reducestock, restorestock };
+// Send a confirmed order to the rider service. Safe to repeat: the rider service keeps ONE job per orderId.
+// Returns { success, message, deliveryId } or null when the rider service cannot be reached.
+const createdelivery = async (payload) => {
+    try {
+        return await callGrpc(getRiderClient(), "CreateDelivery", payload);
+    } catch (error) {
+        console.error("Paymentservice gRPC CreateDelivery error:", error.message);
+        return null;
+    }
+};
+
+// Cancel the delivery of an order. { success:true } when cancelled / nothing to cancel,
+// { success:false } when the rider already picked it up, null when the rider service cannot be reached.
+const canceldelivery = async (orderId, reason) => {
+    try {
+        return await callGrpc(getRiderClient(), "CancelDelivery", { orderId: String(orderId), reason: reason || "" });
+    } catch (error) {
+        console.error("Paymentservice gRPC CancelDelivery error:", error.message);
+        return null;
+    }
+};
+
+export { createdelivery, canceldelivery, getaddress, getcartitems, clearcart, getsingleproduct, reducestock, restorestock };

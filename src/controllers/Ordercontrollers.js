@@ -3,7 +3,8 @@ import Razorpay from "razorpay";
 import OrderModel from "../models/OrderModel.js";
 import PaymentModel from "../models/PaymentModel.js";
 import Envs from "../utils/Envs.js";
-import { getaddress, getcartitems, getsingleproduct, clearcart, reducestock, restorestock } from "../utils/grpcHelper.js";
+import { getaddress, getcartitems, getsingleproduct, clearcart, reducestock, restorestock, canceldelivery } from "../utils/grpcHelper.js";
+import { dispatchDelivery } from "../utils/Deliverydispatch.js";
 import { createInvoicePdf, getInvoiceNumber } from "../utils/invoicePdf.js";
 
 
@@ -208,6 +209,9 @@ const Placeorder = async (req, res) => {
                 )
             );
 
+            // COD is confirmed right now -> send it to the riders (never throws, retried automatically if the rider service is down)
+            await dispatchDelivery(order._id);
+
             return res.status(201).json({ success: true, message: "Order placed !!!", data: { order } });
         }
 
@@ -410,6 +414,19 @@ const Cancelorder = async (req, res) => {
         }
 
         // ================= B) placed order, not shipped yet =================
+        // The delivery is cancelled FIRST. If the rider already picked the parcel up, the cancel is refused,
+        // so the order, the rider and the delivery can never disagree.
+        const cancellable = await OrderModel.exists({ _id: orderId, userId, orderStatus: { $in: CANCELLABLE_STATUSES } });
+        if (cancellable) {
+            const delivery = await canceldelivery(orderId, reason || "Cancelled by customer");
+            if (!delivery) {
+                return res.status(503).json({ success: false, message: "Unable to cancel right now. Please try again in a moment." });
+            }
+            if (!delivery.success) {
+                return res.status(409).json({ success: false, message: "A delivery partner has already picked up this order, it can't be cancelled now !!!" });
+            }
+        }
+
         // ONE atomic update: owner + still not shipped.
         // If two requests arrive together only one of them can match, so no double cancel / double refund.
         const order = await OrderModel.findOneAndUpdate(

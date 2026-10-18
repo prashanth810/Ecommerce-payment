@@ -89,6 +89,18 @@ const OrderSchema = new mongoose.Schema(
             default: null,
         },
 
+        // ---- rider service integration ----
+        deliveryJobId: {
+            type: String,   // id of the delivery job in the rider service (set only after it was created)
+        },
+        deliveryDispatchPending: {
+            type: Boolean,  // true = order is confirmed but the rider service was not reachable; retried automatically
+            default: false,
+        },
+        deliveredAt: {
+            type: Date,
+        },
+
         // ---- cancel (no defaults on purpose: a user-cancelled order is the only one that has cancelledAt) ----
         cancelledAt: {
             type: Date,

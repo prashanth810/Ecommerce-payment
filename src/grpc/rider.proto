@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package rider;
+
+// The order service calls these.
+service RiderService {
+  rpc CreateDelivery (CreateDeliveryRequest) returns (DeliveryResponse);
+  rpc CancelDelivery (CancelDeliveryRequest) returns (DeliveryResponse);
+  rpc GetDeliveryByOrder (GetDeliveryRequest) returns (DeliveryInfoResponse);
+  rpc GetCustomerOtp (GetCustomerOtpRequest) returns (CustomerOtpResponse);
+}
+
+message DropAddress {
+  string full_name = 1;
+  string phone = 2;
+  string building_number = 3;
+  string street = 4;
+  string landmark = 5;
+  string city = 6;
+  string state = 7;
+  string pincode = 8;
+  string country = 9;
+  string address_type = 10;
+}
+
+message DeliveryItem {
+  string name = 1;
+  string weight = 2;
+  int32 quantity = 3;
+  string image = 4;
+}
+
+message CreateDeliveryRequest {
+  string orderId = 1;
+  string customerId = 2;
+  string customerName = 3;
+  string customerPhone = 4;
+  DropAddress address = 5;
+  string pickupAddress = 6;
+  repeated DeliveryItem items = 7;
+  string paymentMethod = 8;   // COD or ONLINE
+  double totalAmount = 9;
+}
+
+message CancelDeliveryRequest {
+  string orderId = 1;
+  string reason = 2;
+}
+
+message DeliveryResponse {
+  bool success = 1;
+  string message = 2;
+  string deliveryId = 3;
+}
+
+message GetDeliveryRequest {
+  string orderId = 1;
+}
+
+message DeliveryInfoResponse {
+  bool success = 1;
+  string message = 2;
+  string status = 3;
+  string riderName = 4;
+  string riderPhone = 5;
+  string vehicleNumber = 6;
+}
+
+message GetCustomerOtpRequest {
+  string customerId = 1;
+}
+
+message CustomerOtpResponse {
+  bool success = 1;
+  string message = 2;
+  string otp = 3;
+  string expiresAt = 4;
+}

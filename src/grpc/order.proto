@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package order;
+
+// The ORDER service must implement this (rider service is the client).
+service OrderService {
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (UpdateOrderStatusResponse);
+}
+
+message UpdateOrderStatusRequest {
+  string orderId = 1;
+  string status = 2;        // OUT_FOR_DELIVERY or DELIVERED
+  string deliveredAt = 3;   // ISO date, only for DELIVERED
+}
+
+message UpdateOrderStatusResponse {
+  bool success = 1;
+  string message = 2;
+}

@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 import PaymentModel from "../models/PaymentModel.js";
 import OrderModel from "../models/OrderModel.js";
 import Envs from "../utils/Envs.js";
-import { clearcart, reducestock, restorestock } from "../utils/grpcHelper.js";
+import { clearcart, reducestock, restorestock, canceldelivery } from "../utils/grpcHelper.js";
+import { dispatchDelivery } from "../utils/Deliverydispatch.js";
 
 // ---------- helpers ----------
 const isText = (value) => typeof value === "string" && value.trim().length > 0;
@@ -109,6 +110,20 @@ const Verifypayment = async (req, res) => {
 
         // already verified, safe to call twice
         if (payment.paymentStatus === "SUCCESS") {
+            // repair a half-finished first call (payment saved but the order was not confirmed yet)
+            const repaired = await OrderModel.findOneAndUpdate(
+                { _id: payment.orderId, orderStatus: "PENDING_PAYMENT" },
+                { orderStatus: "PLACED" },
+                { new: true }
+            );
+            if (repaired) {
+                await clearcart(userId);
+                await Promise.allSettled(repaired.items.map((item) => reducestock(item.productId, item.weight, item.quantity)));
+            }
+
+            // no-op when the job already exists (the rider service keeps one job per order)
+            await dispatchDelivery(payment.orderId);
+
             return res.status(200).json({ success: true, message: "Payment already verified !!!", data: payment });
         }
 
@@ -163,6 +178,9 @@ const Verifypayment = async (req, res) => {
                 )
             );
         }
+
+        // paid + confirmed -> send to riders (never throws, retried automatically if the rider service is down)
+        await dispatchDelivery(payment.orderId);
 
         return res.status(200).json({
             success: true,
@@ -273,6 +291,9 @@ const Makecodfailed = async (req, res) => {
                 )
             );
         }
+
+        // best effort: a job nobody picked up yet is withdrawn (refused automatically once picked up)
+        await canceldelivery(payment.orderId, reason);
 
         return res.status(200).json({ success: true, message: "COD marked as failed !!!", data: payment });
     }

@@ -5,6 +5,8 @@ import Envs from "./utils/Envs.js";
 import ConnectionDb from "./config/ConnectDb.js";
 import Paymentroute from "./routes/Paymentroutes.js";
 import Orderroute from "./routes/Orderroute.js";
+import startOrderGrpcServer from "./grpc/Ordergrpcserver.js";
+import { startDispatchReconciler } from "./utils/Deliverydispatch.js";
 
 
 
@@ -33,6 +35,8 @@ ConnectionDb().then(() => {
     app.listen(PORT, () => {
         console.log(`server started at http://localhost:${PORT}`);
     });
+    startOrderGrpcServer();      // rider service reports pickup / delivered here
+    startDispatchReconciler();   // retries orders that could not be sent to riders
 })
     .catch((error) => {
         console.error(error.message)

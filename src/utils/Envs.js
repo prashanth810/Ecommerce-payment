@@ -15,6 +15,10 @@ const Envs = {
     CART_GRPC_URL: env.CART_GRPC_URL || "127.0.0.1:3002",
     PRODUCT_GRPC_URL: env.PRODUCT_GRPC_URL || "127.0.0.1:3001",
     PRODUCT_API_URL: env.PRODUCT_API_URL || "http://localhost:2001/api/auth/v2",
+    RIDER_GRPC_URL: env.RIDER_GRPC_URL || "127.0.0.1:3006",
+    ORDER_GRPC_PORT: env.ORDER_GRPC_PORT || 3004,
+    PICKUP_ADDRESS: env.PICKUP_ADDRESS || "",
+    DISPATCH_RECONCILE_MS: Number(env.DISPATCH_RECONCILE_MS) || 60000,
     INTERNAL_GRPC_KEY: env.INTERNAL_GRPC_KEY || "ecommerce_grpc_internal_secret_key_2026",
 };
 
