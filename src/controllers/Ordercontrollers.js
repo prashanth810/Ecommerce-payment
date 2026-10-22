@@ -346,12 +346,10 @@ const Getinvoice = async (req, res) => {
         }
 
         // only the owner can download, so a user never sees someone else's invoice
+        // works for ANY order status (placed / success / failed / cancelled)
         const order = await OrderModel.findOne({ _id: orderId, userId }).lean();
         if (!order) {
             return res.status(404).json({ success: false, message: "Order not found !!!" });
-        }
-        if (order.orderStatus !== "PLACED") {
-            return res.status(400).json({ success: false, message: "Invoice is available only for placed orders !!!" });
         }
 
         const payment = await PaymentModel.findOne({ orderId: order._id }).lean();
