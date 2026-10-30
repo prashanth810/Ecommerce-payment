@@ -45,6 +45,7 @@ const dispatchDelivery = async (orderId) => {
             })),
             paymentMethod: order.paymentMethod,
             totalAmount: order.total, // rider service uses it as amountToCollect only for COD
+            customerEmail: order.userEmail || a.email || "",
         });
 
         if (!result) {

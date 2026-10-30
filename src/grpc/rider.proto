@@ -40,6 +40,7 @@ message CreateDeliveryRequest {
   repeated DeliveryItem items = 7;
   string paymentMethod = 8;   // COD or ONLINE
   double totalAmount = 9;
+  string customerEmail = 10;
 }
 
 message CancelDeliveryRequest {
