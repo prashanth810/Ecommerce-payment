@@ -7,6 +7,7 @@ import Paymentroute from "./routes/Paymentroutes.js";
 import Orderroute from "./routes/Orderroute.js";
 import startOrderGrpcServer from "./grpc/Ordergrpcserver.js";
 import { startDispatchReconciler } from "./utils/Deliverydispatch.js";
+import healthRouter from "./health/health.routes.js";
 
 
 
@@ -29,6 +30,8 @@ app.get("/", (req, res) => {
 app.use('/api/auth/v5', Paymentroute);
 app.use('/api/auth/v5', Orderroute);
 
+
+app.use("/health", healthRouter); // HEALTH (before all other routes)
 
 // db connecion 
 ConnectionDb().then(() => {
