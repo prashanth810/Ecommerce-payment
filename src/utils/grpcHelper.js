@@ -78,58 +78,17 @@ const callGrpc = (client, method, payload) =>
     });
 
 // address of this user (null if it does not exist or belongs to someone else)
-const getaddress = async (userId, addressId, authorization) => {
+const getaddress = async (userId, addressId) => {
     try {
         const client = getAddressClient();
         const response = await callGrpc(client, "GetAddressById", {
             userId: String(userId),
             addressId: String(addressId),
         });
-        if (response?.success && response.data) return response.data;
+        return response?.success ? response.data : null;
     } catch (err) {
         console.error("Paymentservice gRPC GetAddressById error:", err.message);
-    }
-
-    try {
-        const baseUrl = Envs.ADDRESS_API_URL.trim().replace(/\/+$/, "");
-        const response = await fetch(
-            `${baseUrl}/api/auth/v4/address/${encodeURIComponent(addressId)}`,
-            {
-                headers: authorization ? { authorization } : {},
-                signal: AbortSignal.timeout(10000),
-            }
-        );
-        const result = await response.json();
-
-        if (!response.ok || !result?.success) {
-            if (response.status === 404) return null;
-            throw new Error(result?.message || `Address service returned HTTP ${response.status}`);
-        }
-
-        const address = Array.isArray(result.data) ? result.data[0] : result.data;
-        if (!address) return null;
-        if (String(address.userId) !== String(userId)) return null;
-
-        return {
-            id: String(address._id || address.id),
-            userId: String(address.userId),
-            full_name: address.full_name || "",
-            phone: address.phone || "",
-            building_number: address.building_number || "",
-            street: address.street || "",
-            landmark: address.landmark || "",
-            city: address.city || "",
-            state: address.state || "",
-            pincode: address.pincode || "",
-            country: address.country || "",
-            address_type: address.address_type || "",
-            is_default: Boolean(address.is_default),
-        };
-    } catch (err) {
-        console.error("Paymentservice address REST fallback error:", err.message);
-        const unavailable = new Error("Address service is unavailable");
-        unavailable.status = 503;
-        throw unavailable;
+        return null;
     }
 };
 
