@@ -12,6 +12,7 @@ const Envs = {
     RAZORPAY_SECRET_KEY: env.RAZORPAY_SECRET_KEY,
     RAZORPAY_WEBHOOK_SECRET: env.RAZORPAY_WEBHOOK_SECRET,
     ADDRESS_GRPC_URL: env.ADDRESS_GRPC_URL || "127.0.0.1:3003",
+    ADDRESS_API_URL: env.ADDRESS_API_URL || "https://ecommerce-addressservice.onrender.com",
     CART_GRPC_URL: env.CART_GRPC_URL || "127.0.0.1:3002",
     PRODUCT_GRPC_URL: env.PRODUCT_GRPC_URL || "127.0.0.1:3001",
     PRODUCT_API_URL: env.PRODUCT_API_URL || "http://localhost:2001/api/auth/v2",

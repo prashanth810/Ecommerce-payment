@@ -88,7 +88,7 @@ const Placeorder = async (req, res) => {
         }
 
         // 1. address from the address service (gRPC)
-        const address = await getaddress(userId || "", addressId.trim());
+        const address = await getaddress(userId || "", addressId.trim(), req.headers.authorization);
         if (!address) {
             return res.status(404).json({ success: false, message: "Address not found !!!" });
         }
@@ -258,7 +258,10 @@ const Placeorder = async (req, res) => {
     }
     catch (error) {
         console.error("Placeorder error:", error.message);
-        return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
+        return res.status(error.status || 500).json({
+            success: false,
+            message: error.status === 503 ? error.message : "Something went wrong. Please try again.",
+        });
     }
 };
 
