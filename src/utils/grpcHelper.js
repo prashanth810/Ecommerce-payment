@@ -133,16 +133,64 @@ const clearcart = async (userId) => {
     }
 };
 
-// product details via gRPC
+// Product details via the public catalog API. The gRPC endpoint is separate
+// from the production HTTP service and may not be reachable from the payment host.
 const getsingleproduct = async (productId) => {
+    let response;
     try {
-        const client = getProductClient();
-        const response = await callGrpc(client, "GetProductById", { productId: String(productId) });
-        return response?.success ? response.data : null;
+        response = await fetch(
+            `${Envs.PRODUCT_API_URL}/product/${encodeURIComponent(productId)}`,
+            { signal: AbortSignal.timeout(20000) }
+        );
     } catch (error) {
-        console.error("Paymentservice gRPC GetProductById error:", error.message);
+        console.error("Paymentservice product API request failed:", error.message);
+        const serviceError = new Error("Product service is not reachable");
+        serviceError.code = "PRODUCT_SERVICE_UNAVAILABLE";
+        throw serviceError;
+    }
+
+    if (response.status === 404) {
         return null;
     }
+
+    if (!response.ok) {
+        const serviceError = new Error(`Product service returned HTTP ${response.status}`);
+        serviceError.code = "PRODUCT_SERVICE_UNAVAILABLE";
+        throw serviceError;
+    }
+
+    let result;
+    try {
+        result = await response.json();
+    } catch (error) {
+        console.error("Paymentservice product API returned invalid JSON:", error.message);
+        const serviceError = new Error("Product service returned an invalid response");
+        serviceError.code = "PRODUCT_SERVICE_UNAVAILABLE";
+        throw serviceError;
+    }
+
+    const product = result?.data;
+    if (!result?.success || !product) {
+        return null;
+    }
+
+    return {
+        id: String(product._id || product.id || productId),
+        name: product.name || "",
+        thumbnail: product.thumbnail || "",
+        images: Array.isArray(product.images) ? product.images : [],
+        is_active: product.is_active !== false,
+        variants: Array.isArray(product.variants)
+            ? product.variants.map((variant) => ({
+                weight: variant.weight || "",
+                original_price: String(variant.original_price ?? ""),
+                selling_price: String(variant.selling_price ?? ""),
+                discount_price: String(variant.discount_price ?? ""),
+                stock: Number(variant.stock ?? variant.stock_quantity ?? 0),
+                stock_quantity: Number(variant.stock_quantity ?? variant.stock ?? 0),
+            }))
+            : [],
+    };
 };
 
 // Reduce stock for a single item after a confirmed order.
