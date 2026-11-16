@@ -14,7 +14,7 @@ const Envs = {
     ADDRESS_API_URL: (env.ADDRESS_API_URL || "https://ecommerce-addressservice.onrender.com").trim().replace(/\/+$/, ""),
     CART_GRPC_URL: env.CART_GRPC_URL || "127.0.0.1:3002",
     PRODUCT_GRPC_URL: env.PRODUCT_GRPC_URL || "127.0.0.1:3001",
-    PRODUCT_API_URL: env.PRODUCT_API_URL || "http://localhost:2001/api/auth/v2",
+    PRODUCT_API_URL: (env.PRODUCT_API_URL || "https://ecommerce-productservice.onrender.com/api/auth/v2").trim().replace(/\/+$/, ""),
     RIDER_GRPC_URL: env.RIDER_GRPC_URL || "127.0.0.1:3006",
     ORDER_GRPC_PORT: env.ORDER_GRPC_PORT || 3004,
     PICKUP_ADDRESS: env.PICKUP_ADDRESS || "",

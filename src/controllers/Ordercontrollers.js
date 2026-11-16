@@ -258,7 +258,7 @@ const Placeorder = async (req, res) => {
     }
     catch (error) {
         console.error("Placeorder error:", error.message);
-        if (error.code === "ADDRESS_SERVICE_UNAVAILABLE") {
+        if (["ADDRESS_SERVICE_UNAVAILABLE", "PRODUCT_SERVICE_UNAVAILABLE"].includes(error.code)) {
             return res.status(502).json({ success: false, message: error.message });
         }
         return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
