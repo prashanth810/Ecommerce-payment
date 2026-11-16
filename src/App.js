@@ -48,7 +48,7 @@ app.use("/health", healthRouter); // HEALTH (before all other routes)
 // The address APIs live on the separate ADDRESS service. If the frontend still calls
 // this (payment) URL for /api/auth/v4/..., forward the request to the address service.
 // ADDRESS_API_URL can override this for another deployment; default to the production address service.
-const ADDRESS_API_URL = (process.env.ADDRESS_API_URL || "https://ecommerce-addressservice.onrender.com").trim().replace(/\/+$/, "");
+const ADDRESS_API_URL = Envs.ADDRESS_API_URL;
 
 app.use("/api/auth/v4", async (req, res) => {
     if (!ADDRESS_API_URL) {

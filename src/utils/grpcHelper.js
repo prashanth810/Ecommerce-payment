@@ -17,18 +17,6 @@ const loadProto = (file) =>
         })
     );
 
-let addressClient;
-const getAddressClient = () => {
-    if (!addressClient) {
-        const proto = loadProto("address.proto");
-        addressClient = new proto.address.AddressService(
-            Envs.ADDRESS_GRPC_URL,
-            grpc.credentials.createInsecure()
-        );
-    }
-    return addressClient;
-};
-
 let cartClient;
 const getCartClient = () => {
     if (!cartClient) {
@@ -77,19 +65,48 @@ const callGrpc = (client, method, payload) =>
         });
     });
 
-// address of this user (null if it does not exist or belongs to someone else)
-const getaddress = async (userId, addressId) => {
+// Address lookup uses the authenticated HTTP API so order placement does not
+// depend on the address service's separately configured gRPC endpoint.
+const getaddress = async (userId, addressId, authorization) => {
+    let response;
     try {
-        const client = getAddressClient();
-        const response = await callGrpc(client, "GetAddressById", {
-            userId: String(userId),
-            addressId: String(addressId),
-        });
-        return response?.success ? response.data : null;
-    } catch (err) {
-        console.error("Paymentservice gRPC GetAddressById error:", err.message);
+        response = await fetch(
+            `${Envs.ADDRESS_API_URL}/api/auth/v4/address/${encodeURIComponent(addressId)}`,
+            {
+                headers: { authorization },
+                signal: AbortSignal.timeout(20000),
+            }
+        );
+    } catch (error) {
+        console.error("Paymentservice address API request failed:", error.message);
+        const serviceError = new Error("Address service is not reachable");
+        serviceError.code = "ADDRESS_SERVICE_UNAVAILABLE";
+        throw serviceError;
+    }
+
+    if (!response.ok) {
+        const serviceError = new Error(`Address service returned HTTP ${response.status}`);
+        serviceError.code = "ADDRESS_SERVICE_UNAVAILABLE";
+        throw serviceError;
+    }
+
+    const result = await response.json();
+    const address = Array.isArray(result?.data)
+        ? result.data.find((item) => String(item._id || item.id) === String(addressId))
+        : result?.data;
+
+    if (!result?.success || !address) {
         return null;
     }
+
+    if (address.userId && String(address.userId) !== String(userId)) {
+        return null;
+    }
+
+    return {
+        ...address,
+        id: String(address._id || address.id || addressId),
+    };
 };
 
 // cart items of this user: [{ productId, weight, quantity, name, image }]

@@ -87,8 +87,8 @@ const Placeorder = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid payment method !!!" });
         }
 
-        // 1. address from the address service (gRPC)
-        const address = await getaddress(userId || "", addressId.trim());
+        // 1. address from the authenticated address service API
+        const address = await getaddress(userId || "", addressId.trim(), req.headers.authorization);
         if (!address) {
             return res.status(404).json({ success: false, message: "Address not found !!!" });
         }
@@ -258,6 +258,9 @@ const Placeorder = async (req, res) => {
     }
     catch (error) {
         console.error("Placeorder error:", error.message);
+        if (error.code === "ADDRESS_SERVICE_UNAVAILABLE") {
+            return res.status(502).json({ success: false, message: error.message });
+        }
         return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
     }
 };
