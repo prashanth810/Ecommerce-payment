@@ -20,7 +20,32 @@ const API_BASE = "/api/auth/v5";
 // so every user shares ONE rate-limit bucket.
 app.set("trust proxy", 1);
 
-app.use(cors());
+const allowedOrigins = new Set([
+    "https://livefarmering.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+]);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.has(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(null, false);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-internal-key"],
+    exposedHeaders: ["Content-Disposition"],
+}));
+
+app.options(/.*/, cors({
+    origin: (origin, callback) => {
+        callback(null, !origin || allowedOrigins.has(origin));
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-internal-key"],
+}));
 app.use(morgan('dev'));
 
 app.use(express.json({ limit: "10mb" }))
