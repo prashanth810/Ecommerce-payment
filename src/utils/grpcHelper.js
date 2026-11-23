@@ -19,6 +19,7 @@ const loadProto = (file) =>
 
 let cartClient;
 const getCartClient = () => {
+    if (!Envs.CART_GRPC_URL) return null;
     if (!cartClient) {
         const proto = loadProto("cart.proto");
         cartClient = new proto.cart.CartService(
@@ -31,6 +32,7 @@ const getCartClient = () => {
 
 let productClient;
 const getProductClient = () => {
+    if (!Envs.PRODUCT_GRPC_URL) return null;
     if (!productClient) {
         const proto = loadProto("product.proto");
         productClient = new proto.product.ProductService(
@@ -110,25 +112,80 @@ const getaddress = async (userId, addressId, authorization) => {
 };
 
 // cart items of this user: [{ productId, weight, quantity, name, image }]
-const getcartitems = async (userId) => {
+const getcartitems = async (userId, authorization) => {
+    const grpcClient = getCartClient();
+    if (grpcClient) {
+        try {
+            const response = await callGrpc(grpcClient, "GetCartItems", { userId: String(userId) });
+            return response?.items || [];
+        } catch (err) {
+            console.error("Paymentservice gRPC GetCartItems error:", err.message);
+        }
+    }
+
     try {
-        const client = getCartClient();
-        const response = await callGrpc(client, "GetCartItems", { userId: String(userId) });
-        return response?.items || [];
+        const response = await fetch(
+            `${Envs.CART_API_URL}/api/auth/v3/cart/all`,
+            {
+                headers: authorization ? { authorization } : {},
+                signal: AbortSignal.timeout(20000),
+            }
+        );
+        if (!response.ok) return [];
+
+        const result = await response.json();
+        const cart = result?.data?.items ? result.data : result?.data?.cart || result?.data;
+        return Array.isArray(cart?.items) ? cart.items.map((item) => ({
+            productId: String(item.productId?._id || item.productId || ""),
+            weight: item.weight || "",
+            quantity: Number(item.quantity) || 0,
+            name: item.name || "",
+            image: item.image || "",
+        })) : [];
     } catch (err) {
-        console.error("Paymentservice gRPC GetCartItems error:", err.message);
+        console.error("Paymentservice cart API GetCartItems error:", err.message);
         return [];
     }
 };
 
 // clear cart items for user
-const clearcart = async (userId) => {
+const clearcart = async (userId, authorization) => {
+    const grpcClient = getCartClient();
+    if (grpcClient) {
+        try {
+            const response = await callGrpc(grpcClient, "ClearCart", { userId: String(userId) });
+            return response?.success || false;
+        } catch (err) {
+            console.error("Paymentservice gRPC ClearCart error:", err.message);
+        }
+    }
+
     try {
-        const client = getCartClient();
-        const response = await callGrpc(client, "ClearCart", { userId: String(userId) });
-        return response?.success || false;
+        const cartResponse = await fetch(
+            `${Envs.CART_API_URL}/api/auth/v3/cart/all`,
+            {
+                headers: authorization ? { authorization } : {},
+                signal: AbortSignal.timeout(20000),
+            }
+        );
+        if (!cartResponse.ok) return false;
+
+        const cartResult = await cartResponse.json();
+        const items = Array.isArray(cartResult?.data?.items) ? cartResult.data.items : [];
+        await Promise.allSettled(items.map((item) =>
+            fetch(`${Envs.CART_API_URL}/api/auth/v3/cart/clear/${encodeURIComponent(item.productId?._id || item.productId)}`, {
+                method: "DELETE",
+                headers: {
+                    ...(authorization ? { authorization } : {}),
+                    "content-type": "application/json",
+                },
+                body: JSON.stringify({ weight: item.weight || "" }),
+                signal: AbortSignal.timeout(20000),
+            })
+        ));
+        return true;
     } catch (err) {
-        console.error("Paymentservice gRPC ClearCart error:", err.message);
+        console.error("Paymentservice cart API ClearCart error:", err.message);
         return false;
     }
 };
@@ -198,6 +255,7 @@ const getsingleproduct = async (productId) => {
 const reducestock = async (productId, weight, quantity) => {
     try {
         const client = getProductClient();
+        if (!client) return false;
         const response = await callGrpc(client, "ReduceStock", {
             productId: String(productId),
             weight: String(weight),
@@ -217,6 +275,7 @@ const reducestock = async (productId, weight, quantity) => {
 const restorestock = async (productId, weight, quantity) => {
     try {
         const client = getProductClient();
+        if (!client) return false;
         const response = await callGrpc(client, "RestoreStock", {
             productId: String(productId),
             weight: String(weight),

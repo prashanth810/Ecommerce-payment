@@ -117,7 +117,7 @@ const Verifypayment = async (req, res) => {
                 { new: true }
             );
             if (repaired) {
-                await clearcart(userId);
+                await clearcart(userId, req.headers.authorization);
                 await Promise.allSettled(repaired.items.map((item) => reducestock(item.productId, item.weight, item.quantity)));
             }
 
@@ -168,7 +168,7 @@ const Verifypayment = async (req, res) => {
             { orderStatus: "PLACED" },
             { new: true }
         );
-        await clearcart(userId);
+        await clearcart(userId, req.headers.authorization);
 
         // Reduce stock for every item in the order (fire-and-forget, non-fatal)
         if (confirmedOrder?.items?.length) {

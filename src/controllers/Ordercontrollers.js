@@ -128,7 +128,7 @@ const Placeorder = async (req, res) => {
         // 2. items: either from req.body.items (Buy Now / Swagger) or from cart service (gRPC)
         let cartItems = Array.isArray(bodyItems) && bodyItems.length > 0
             ? bodyItems
-            : await getcartitems(userId);
+            : await getcartitems(userId, req.headers.authorization);
 
         if (!cartItems || cartItems.length === 0) {
             return res.status(400).json({ success: false, message: "Your cart is empty !!!" });
@@ -245,7 +245,7 @@ const Placeorder = async (req, res) => {
                 isPaid: false,
                 is_refund: false,
             });
-            await clearcart(userId);
+            await clearcart(userId, req.headers.authorization);
 
             // Reduce stock for every ordered item (fire-and-forget, non-fatal)
             await Promise.allSettled(
