@@ -71,6 +71,30 @@ const getRazorpay = () => {
     return razorpayClient;
 };
 
+const normalizeWeight = (value) =>
+    String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const findVariant = (product, weight) => {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    if (!weight) return variants.length === 1 ? variants[0] : null;
+
+    const exact = variants.find((variant) => String(variant.weight) === String(weight));
+    if (exact) return exact;
+
+    const normalizedWeight = normalizeWeight(weight);
+    return variants.find((variant) => normalizeWeight(variant.weight) === normalizedWeight) || null;
+};
+
+const getVariantStock = (variant) => {
+    const stock = Number(variant?.stock);
+    const stockQuantity = Number(variant?.stock_quantity);
+    const values = [stock, stockQuantity].filter((value) => Number.isFinite(value) && value >= 0);
+
+    // Some older records have only one of these fields populated.  Use the
+    // higher valid value so stale/partially duplicated fields cannot block stock.
+    return values.length ? Math.max(...values) : 0;
+};
+
 // ---------- place order ----------
 const Placeorder = async (req, res) => {
     let userId = req?.user?.id || req?.user?._id || req?.body?.userId;
@@ -111,25 +135,46 @@ const Placeorder = async (req, res) => {
         }
 
         // 3. price + stock from the product service (never trusted from the cart or client)
-        const productIds = [...new Set(cartItems.map((item) => String(item.productId || item.id)))];
+        const productIds = [...new Set(cartItems.map((item) => {
+            const rawId = item.productId && typeof item.productId === "object"
+                ? (item.productId._id || item.productId.id)
+                : (item.productId || item.id);
+            return String(rawId || "");
+        }).filter(Boolean))];
         const products = Object.fromEntries(
             await Promise.all(productIds.map(async (id) => [id, await getsingleproduct(id)]))
         );
 
         const items = [];
         for (const cartItem of cartItems) {
-            const pid = String(cartItem.productId || cartItem.id);
+            const rawPid = cartItem.productId && typeof cartItem.productId === "object"
+                ? (cartItem.productId._id || cartItem.productId.id)
+                : (cartItem.productId || cartItem.id);
+            const pid = String(rawPid || "");
             const product = products[pid];
-            const variant = product?.variants?.find((v) => v.weight === cartItem.weight);
+            const requestedWeight = cartItem.weight ?? cartItem.unit ?? cartItem.variant?.weight ?? "";
+            const variant = findVariant(product, requestedWeight);
 
             if (!product || !variant) {
+                const availableWeights = Array.isArray(product?.variants)
+                    ? product.variants.map((item) => item.weight).filter(Boolean).join(", ")
+                    : "";
                 return res.status(400).json({
                     success: false,
-                    message: `${cartItem.name || product?.name || "An item"} is no longer available !!!`,
+                    message: product
+                        ? `Variant "${requestedWeight || "not specified"}" is unavailable for ${product.name}${availableWeights ? `. Available: ${availableWeights}` : ""} !!!`
+                        : `${cartItem.name || "An item"} is no longer available !!!`,
                 });
             }
 
-            const stock = Number(variant.stock ?? variant.stock_quantity ?? product.stock);
+            if (product.is_active === false) {
+                return res.status(400).json({
+                    success: false,
+                    message: `${product.name || cartItem.name || "An item"} is no longer available !!!`,
+                });
+            }
+
+            const stock = getVariantStock(variant);
             const qty = Number(cartItem.quantity) || 1;
             if (Number.isFinite(stock) && stock < qty) {
                 return res.status(400).json({
