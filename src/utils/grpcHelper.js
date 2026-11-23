@@ -19,11 +19,11 @@ const loadProto = (file) =>
 
 let cartClient;
 const getCartClient = () => {
-    if (!Envs.CART_GRPC_URL) return null;
+    if (!process.env.CART_GRPC_URL) return null;
     if (!cartClient) {
         const proto = loadProto("cart.proto");
         cartClient = new proto.cart.CartService(
-            Envs.CART_GRPC_URL,
+            process.env.CART_GRPC_URL,
             grpc.credentials.createInsecure()
         );
     }
@@ -32,11 +32,11 @@ const getCartClient = () => {
 
 let productClient;
 const getProductClient = () => {
-    if (!Envs.PRODUCT_GRPC_URL) return null;
+    if (!process.env.PRODUCT_GRPC_URL) return null;
     if (!productClient) {
         const proto = loadProto("product.proto");
         productClient = new proto.product.ProductService(
-            Envs.PRODUCT_GRPC_URL,
+            process.env.PRODUCT_GRPC_URL,
             grpc.credentials.createInsecure()
         );
     }
